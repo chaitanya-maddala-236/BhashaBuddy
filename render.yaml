@@ -4,7 +4,7 @@ services:
     runtime: node
     plan: free
     buildCommand: npm ci && npm run build
-    startCommand: npm start -- --hostname 0.0.0.0
+    startCommand: npx next start --hostname 0.0.0.0
     healthCheckPath: /
     envVars:
       - key: NODE_VERSION
