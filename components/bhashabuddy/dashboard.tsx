@@ -4,6 +4,7 @@ import { ArrowRight, ArrowUpRight, Bookmark, Check, Clock3, Flame, Mic2 } from "
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import type { RouteActions } from "@/components/bhashabuddy/app";
+import { LearningCoach } from "@/components/bhashabuddy/learning-coach";
 import { CURRICULUM, getLanguage, getLessonPhrases, getNextDay } from "@/lib/bhashabuddy-data";
 
 function getWeekData(state: RouteActions["state"]) {
@@ -89,6 +90,13 @@ export function Dashboard({ actions }: { actions: RouteActions }) {
           <div className="feature-art__caption"><span>A SHORT WALK</span><span>ASK · LISTEN · FIND</span></div>
         </div>
       </section>
+
+      <LearningCoach
+        state={actions.state}
+        onNavigate={actions.go}
+        onStartScenario={(slug) => actions.go("/practice/" + slug)}
+        onSavePhrase={actions.toggleSaved}
+      />
 
       <div className="dashboard-overview">
         <section className="weekly-card">

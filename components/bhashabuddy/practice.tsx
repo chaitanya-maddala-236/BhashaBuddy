@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { ArrowLeft, ArrowRight, Check, HelpCircle, Mic2, RotateCcw, Send, Volume2, VolumeX, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { RouteActions } from "@/components/bhashabuddy/app";
+import { LearningCoach } from "@/components/bhashabuddy/learning-coach";
+import { ShadowingPractice } from "@/components/bhashabuddy/shadowing";
 import { getLanguage, getLessonPhrases, type LanguageCode, PHRASES } from "@/lib/bhashabuddy-data";
 import { LanguageAvatar, type AvatarState } from "@/components/bhashabuddy/language-avatar";
 import { playLanguageSpeech, stopSpeechPlayback } from "@/lib/speech-playback";
@@ -65,6 +67,7 @@ export function PracticePage({ actions }: { actions: RouteActions }) {
   const slug = pathname.split("/")[2];
   const scenario = scenarios.find((item) => item.slug === slug);
 
+  if (slug === "shadowing") return <ShadowingPractice actions={actions} />;
   if (!scenario) return <ScenarioIndex actions={actions} />;
   return <ConversationWorkspace key={scenario.slug + ":" + profile.targetLanguage} actions={actions} scenario={scenario} />;
 }
@@ -80,6 +83,11 @@ function ScenarioIndex({ actions }: { actions: RouteActions }) {
         <p>Choose a familiar situation, then respond by voice or text. You can pause, ask for a hint, or try your phrase again.</p>
       </header>
       <div className="practice-intro-strip"><span className="practice-intro-strip__icon"><Mic2 size={20} /></span><div><strong>Start with the words you have.</strong><p>There is no timer. The tutor stays in the situation and keeps replies short.</p></div><span className="practice-intro-strip__note">AUDIO OPTIONAL</span></div>
+      <section className="shadowing-promo">
+        <span className="shadowing-promo__icon"><Volume2 size={20} /></span>
+        <div><span className="eyebrow">A DIFFERENT WAY TO PRACTISE</span><h2>Listen, then shadow the line.</h2><p>Repeat a sentence or a short dialogue. Gemini can listen to your recording and offer one approximate tip.</p></div>
+        <Button className="btn-ink" onClick={() => actions.go("/practice/shadowing")}>Open shadowing <ArrowRight size={15} /></Button>
+      </section>
       <div className="scenario-list">
         {scenarios.map((item) => <button className="scenario-row" key={item.slug} onClick={() => actions.go("/practice/" + item.slug)}>
           <span className={"scenario-row__number tone-" + item.tone}>{item.number}</span>
@@ -409,6 +417,14 @@ function ConversationWorkspace({
       <p>You showed up and made space for a conversation. Choose one phrase to revisit, then come back when you are ready.</p>
       <div className="finish-highlight"><span className="eyebrow">KEEP THIS PHRASE</span><strong lang={language.locale}>{samplePhrase.nativeText}</strong><span>{samplePhrase.meaning}</span></div>
       <div className="finish-actions"><Button className="btn-primary" onClick={retryPhrase}><RotateCcw size={15} /> Try this phrase again</Button><Button className="btn-line" onClick={() => actions.go("/practice")}>Choose another scene <ArrowRight size={15} /></Button></div>
+      <LearningCoach
+        state={actions.state}
+        currentScenario={scenario.title}
+        practiceTranscript={messages.map(({ role, text }) => ({ role, text }))}
+        onNavigate={actions.go}
+        onStartScenario={(slug) => actions.go("/practice/" + slug)}
+        onSavePhrase={actions.toggleSaved}
+      />
     </div>;
   }
 
@@ -491,6 +507,14 @@ function ConversationWorkspace({
       </main>
       <aside className="conversation-aside">
         <div className="aside-card"><span className="eyebrow">A SMALL HINT</span><h3>Need a word?</h3><p>Ask for a hint at any point. It will not end the conversation.</p><button className="text-link" onClick={() => setShowHint((value) => !value)}><HelpCircle size={14} /> {showHint ? "Hide the hint" : "Show me a phrase"}</button></div>
+        <LearningCoach
+          compact
+          state={actions.state}
+          currentScenario={scenario.title}
+          onNavigate={actions.go}
+          onStartScenario={(slug) => actions.go("/practice/" + slug)}
+          onSavePhrase={actions.toggleSaved}
+        />
         <div className="aside-card aside-card--sage"><span className="eyebrow">YOUR ROLE</span><h3>A learner, not a performer.</h3><p>Try one part of the sentence. You can use transliteration, type a response, or start over.</p></div>
         <div className="aside-disclaimer"><span>{hasGeminiKey ? "GEMINI ROLE-PLAY" : "SAMPLE ROLE-PLAY"}</span><p>{hasGeminiKey ? "Your connected tutor uses recent transcript turns for context. Replies may vary by regional language." : "Sample replies work offline. Connect your Gemini key in Settings for live role-play."}</p>{!hasGeminiKey && <button className="text-link" onClick={() => actions.go("/settings")}>Connect Gemini <ArrowRight size={13} /></button>}</div>
       </aside>
