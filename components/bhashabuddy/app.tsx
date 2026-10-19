@@ -9,19 +9,15 @@ import {
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  AudioLines,
   BookOpen,
   Bookmark,
   ChartNoAxesColumnIncreasing,
   ChevronDown,
   Flame,
-  Headphones,
-  Home,
   Languages,
   Menu,
   MessageCircle,
   Settings,
-  Sparkles,
 } from "lucide-react";
 import { LandingPage } from "@/components/bhashabuddy/landing";
 import { Onboarding } from "@/components/bhashabuddy/onboarding";
@@ -31,12 +27,11 @@ import { PracticePage } from "@/components/bhashabuddy/practice";
 import { PhrasebookPage } from "@/components/bhashabuddy/phrasebook";
 import { ProgressPage } from "@/components/bhashabuddy/progress";
 import { SettingsPage } from "@/components/bhashabuddy/settings";
-import { Button } from "@/components/ui/button";
 import { getLanguage, getNextDay, LANGUAGES, type LanguageCode } from "@/lib/bhashabuddy-data";
+import { useAccountSync } from "@/lib/use-account-sync";
 import {
   DEMO_STATE,
   EMPTY_STATE,
-  dayKey,
   loadState,
   saveState,
   type AppState,
@@ -52,6 +47,7 @@ type RouteActions = {
   toggleSaved: (phraseId: string) => void;
   completeLesson: (day: number) => void;
   recordPractice: (minutes?: number) => void;
+  accountSync: ReturnType<typeof useAccountSync>;
 };
 
 const navigation = [
@@ -91,6 +87,8 @@ export function BhashaBuddyApp() {
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
+    // Restore browser-only guest state after hydration to avoid a server/client mismatch.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setStateRaw(loadState());
     setHydrated(true);
   }, []);
@@ -102,6 +100,8 @@ export function BhashaBuddyApp() {
       return resolved;
     });
   }, []);
+
+  const accountSync = useAccountSync(state, (next) => setState(next));
 
   const go = useCallback((path: string) => {
     router.push(path);
@@ -176,7 +176,8 @@ export function BhashaBuddyApp() {
     toggleSaved,
     completeLesson,
     recordPractice,
-  }), [completeLesson, go, recordPractice, resetDemo, setState, startDemo, state, toggleSaved]);
+    accountSync,
+  }), [accountSync, completeLesson, go, recordPractice, resetDemo, setState, startDemo, state, toggleSaved]);
 
   if (!hydrated) {
     return <main className="preload-screen"><span className="brand-mark">b.</span></main>;

@@ -5,7 +5,7 @@ import { ArrowRight, Bookmark, Check, Clock3, Compass, Flame, Mic2 } from "lucid
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import type { RouteActions } from "@/components/bhashabuddy/app";
-import { CURRICULUM, getLanguage, getLessonPhrases, getNextDay, PHRASES } from "@/lib/bhashabuddy-data";
+import { getLanguage, getLessonPhrases, getNextDay, PHRASES } from "@/lib/bhashabuddy-data";
 
 function currentWeekMinutes(state: RouteActions["state"]) {
   const now = new Date();

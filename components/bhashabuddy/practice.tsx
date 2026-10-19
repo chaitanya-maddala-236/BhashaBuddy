@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { ArrowLeft, ArrowRight, Check, HelpCircle, Mic2, RotateCcw, Send, Volume2, VolumeX, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { RouteActions } from "@/components/bhashabuddy/app";
@@ -10,6 +10,7 @@ import { playLanguageSpeech, stopSpeechPlayback } from "@/lib/speech-playback";
 import { usePathname } from "next/navigation";
 import {
   clearConversationMemory,
+  getCloudMemorySyncEnabled,
   getConversationMemoryKey,
   getGeminiApiKey,
   MAX_MEMORY_MESSAGES,
@@ -61,7 +62,6 @@ const replyLines: Record<LanguageCode, { line: string; transliteration: string; 
 export function PracticePage({ actions }: { actions: RouteActions }) {
   const pathname = usePathname();
   const profile = actions.state.profile!;
-  const language = getLanguage(profile.targetLanguage);
   const slug = pathname.split("/")[2];
   const scenario = scenarios.find((item) => item.slug === slug);
 
@@ -76,7 +76,7 @@ function ScenarioIndex({ actions }: { actions: RouteActions }) {
     <div className="practice-index">
       <div className="page-overline"><span>03 / SPEAKING STUDIO</span><span>{language.name.toUpperCase()} <i>·</i> YOUR PRACTICE SPACE</span></div>
       <header className="screen-heading screen-heading--practice">
-        <div><span className="eyebrow">PRIVATE PRACTICE, YOUR WAY</span><h1>Let's have a<br /><em>short conversation.</em></h1></div>
+        <div><span className="eyebrow">PRIVATE PRACTICE, YOUR WAY</span><h1>Let&apos;s have a<br /><em>short conversation.</em></h1></div>
         <p>Choose a familiar situation, then respond by voice or text. You can pause, ask for a hint, or try your phrase again.</p>
       </header>
       <div className="practice-intro-strip"><span className="practice-intro-strip__icon"><Mic2 size={20} /></span><div><strong>Start with the words you have.</strong><p>There is no timer. The tutor stays in the situation and keeps replies short.</p></div><span className="practice-intro-strip__note">AUDIO OPTIONAL</span></div>
@@ -105,7 +105,7 @@ function ConversationWorkspace({
   const opening = openingPrompts[profile.targetLanguage];
   const reply = replyLines[profile.targetLanguage];
   const memoryKey = getConversationMemoryKey(profile.targetLanguage, scenario.slug);
-  const initialMessage: Message = { role: "tutor", text: opening.line, meaning: opening.meaning, transliteration: opening.transliteration };
+  const initialMessage = useMemo<Message>(() => ({ role: "tutor", text: opening.line, meaning: opening.meaning, transliteration: opening.transliteration }), [opening]);
   const [messages, setMessages] = useState<Message[]>([initialMessage]);
   const [input, setInput] = useState("");
   const [lastLearnerText, setLastLearnerText] = useState("");
@@ -124,10 +124,18 @@ function ConversationWorkspace({
   const [showHint, setShowHint] = useState(false);
   const [sending, setSending] = useState(false);
   const [memoryLoaded, setMemoryLoaded] = useState(false);
+  const [cloudMemoryEnabled, setCloudMemoryEnabled] = useState(false);
   const [hasGeminiKey, setHasGeminiKey] = useState(false);
   const [tutorNotice, setTutorNotice] = useState("");
+  const suppressCloudMemoryWriteRef = useRef(false);
   const recognitionRef = useRef<Recognition | null>(null);
   const voiceControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    // Browser storage is read after hydration so the privacy note matches on server and client.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCloudMemoryEnabled(getCloudMemorySyncEnabled());
+  }, []);
 
   const avatarState: AvatarState = listening ? "listening" : sending || voiceLoading ? "thinking" : tutorSpeaking ? "speaking" : "idle";
 
@@ -161,23 +169,73 @@ function ConversationWorkspace({
   }
 
   useEffect(() => {
-    const stored = readConversationMemory(memoryKey);
-    const restored = stored?.length ? stored : [initialMessage];
-    const lastLearner = [...restored].reverse().find((message) => message.role === "learner");
-    const lastTutor = [...restored].reverse().find((message) => message.role === "tutor");
-    setMessages(restored);
-    setTurn(restored.filter((message) => message.role === "learner").length + 1);
-    setLastLearnerText(lastLearner?.text ?? "");
-    setFeedbackText(lastTutor?.feedback ?? "");
-    setFeedbackVisible(Boolean(lastTutor?.feedback));
-    setReplyIsLiveGemini(lastTutor?.provider === "gemini");
-    setHasGeminiKey(Boolean(getGeminiApiKey()));
-    setMemoryLoaded(true);
-  }, [memoryKey, opening]);
+    let active = true;
+    async function restoreMemory() {
+      const stored = readConversationMemory(memoryKey);
+      let restored = stored?.length ? stored : [initialMessage];
+      const syncMemory = getCloudMemorySyncEnabled();
+
+      if (syncMemory) {
+        const query = `language=${encodeURIComponent(profile.targetLanguage)}&scenario=${encodeURIComponent(scenario.slug)}`;
+        try {
+          const response = await fetch(`/api/account/memory?${query}`, { cache: "no-store" });
+          if (response.ok) {
+            const result = await response.json() as { messages?: ConversationMessage[] | null };
+            if (result.messages?.length) restored = result.messages;
+            else if (stored?.length) {
+              await fetch("/api/account/memory", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ language: profile.targetLanguage, scenario: scenario.slug, messages: stored }),
+              });
+            }
+          }
+        } catch {
+          // Local tutor memory continues to work when the account service is offline.
+        }
+      }
+
+      if (!active) return;
+      const lastLearner = [...restored].reverse().find((message) => message.role === "learner");
+      const lastTutor = [...restored].reverse().find((message) => message.role === "tutor");
+      setMessages(restored);
+      setTurn(restored.filter((message) => message.role === "learner").length + 1);
+      setLastLearnerText(lastLearner?.text ?? "");
+      setFeedbackText(lastTutor?.feedback ?? "");
+      setFeedbackVisible(Boolean(lastTutor?.feedback));
+      setReplyIsLiveGemini(lastTutor?.provider === "gemini");
+      setHasGeminiKey(Boolean(getGeminiApiKey()));
+      setMemoryLoaded(true);
+    }
+    void restoreMemory();
+    return () => { active = false; };
+  }, [initialMessage, memoryKey, profile.targetLanguage, scenario.slug]);
 
   useEffect(() => {
-    if (memoryLoaded) saveConversationMemory(memoryKey, messages);
-  }, [memoryKey, memoryLoaded, messages]);
+    if (!memoryLoaded) return;
+    saveConversationMemory(memoryKey, messages);
+    if (suppressCloudMemoryWriteRef.current) {
+      suppressCloudMemoryWriteRef.current = false;
+      return;
+    }
+    if (!getCloudMemorySyncEnabled()) return;
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      void fetch("/api/account/memory", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ language: profile.targetLanguage, scenario: scenario.slug, messages }),
+        signal: controller.signal,
+      }).catch(() => {
+        // Cloud sync is optional; the tab memory remains available.
+      });
+    }, 500);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [memoryKey, memoryLoaded, messages, profile.targetLanguage, scenario.slug]);
 
   useEffect(() => () => {
     recognitionRef.current?.stop();
@@ -306,6 +364,11 @@ function ConversationWorkspace({
 
   function clearMemory() {
     clearConversationMemory(memoryKey);
+    if (getCloudMemorySyncEnabled() && actions.accountSync.email) {
+      const query = `language=${encodeURIComponent(profile.targetLanguage)}&scenario=${encodeURIComponent(scenario.slug)}`;
+      void fetch(`/api/account/memory?${query}`, { method: "DELETE" }).catch(() => undefined);
+      suppressCloudMemoryWriteRef.current = true;
+    }
     voiceControllerRef.current?.abort();
     setVoiceLoading(false);
     stopSpeechPlayback();
@@ -363,10 +426,10 @@ function ConversationWorkspace({
             <span className="voice-stage__eyebrow">YOUR SPEAKING PARTNER <i>·</i> {language.name.toUpperCase()}</span>
             <h2>{avatarState === "listening" ? "I'm listening." : avatarState === "thinking" ? "Let me think." : avatarState === "speaking" ? "A reply for you." : "Let's find the words."}</h2>
             <p>{avatarState === "listening" ? "Say a short phrase in " + language.name + "." : avatarState === "thinking" ? "Your conversation is taking shape." : avatarState === "speaking" ? "Listen once, then try the phrase yourself." : "Take your time. Start with one phrase, then build from there."}</p>
-            <div className="voice-stage__status" role="status" aria-live="polite"><span />{avatarState === "listening" ? "Listening to your voice" : avatarState === "thinking" ? "Preparing a response" : avatarState === "speaking" ? "Speaking the reply" : "Ready when you are"}</div>
+            <div className="voice-stage__status" role="status" aria-live="polite"><span />{!memoryLoaded ? "Restoring your conversation" : avatarState === "listening" ? "Listening to your voice" : avatarState === "thinking" ? "Preparing a response" : avatarState === "speaking" ? "Speaking the reply" : "Ready when you are"}</div>
           </div>
           <div className="voice-stage__controls">
-            <button className={`voice-stage__mic${listening ? " is-listening" : ""}`} type="button" onClick={listening ? stopListening : startListening} aria-label={listening ? "Stop speaking" : "Start voice conversation"} aria-pressed={listening} disabled={sending}>
+            <button className={`voice-stage__mic${listening ? " is-listening" : ""}`} type="button" onClick={listening ? stopListening : startListening} aria-label={listening ? "Stop speaking" : "Start voice conversation"} aria-pressed={listening} disabled={sending || !memoryLoaded}>
               {listening ? <span className="mic-pulse"><i /></span> : <Mic2 size={24} />}
             </button>
             <span className="voice-stage__mic-label">{listening ? "Tap to finish" : "Tap to speak"}</span>
@@ -393,7 +456,7 @@ function ConversationWorkspace({
         <div className="transcript-card">
           <div className="transcript-header">
             <span>SESSION MEMORY <i>·</i> LAST {Math.min(MAX_MEMORY_MESSAGES / 2, messages.filter((message) => message.role === "learner").length)} EXCHANGES</span>
-            <div className="transcript-header__tools"><span>TURN {String(turn).padStart(2, "0")}</span><button className="memory-clear" type="button" onClick={clearMemory} disabled={sending} aria-label="Clear this conversation memory"><RotateCcw size={12} /> Clear memory</button></div>
+            <div className="transcript-header__tools"><span>TURN {String(turn).padStart(2, "0")}</span><button className="memory-clear" type="button" onClick={clearMemory} disabled={sending || !memoryLoaded} aria-label="Clear this conversation memory"><RotateCcw size={12} /> Clear memory</button></div>
           </div>
           <div className="transcript-messages" aria-live="polite">
             {messages.map((message, index) => <article className={"transcript-message" + (message.role === "learner" ? " transcript-message--learner" : "")} key={index}>
@@ -418,13 +481,13 @@ function ConversationWorkspace({
             <label className="sr-only" htmlFor="practice-response">Type a response in {language.name}</label>
             <textarea id="practice-response" rows={2} value={input} onChange={(event) => setInput(event.target.value)} placeholder={`Type a response in ${language.name}…`} />
             <div className="composer__actions"><span>{listening ? <><i className="listening-dot" /> Listening in {language.name}</> : "Transcript is editable before sending."}</span>
-              {listening ? <Button type="button" className="btn-line btn-cancel" onClick={stopListening}><X size={14} /> Stop</Button> : <Button className="btn-primary" type="submit" disabled={!input.trim() || sending}><Send size={14} /> Send response</Button>}
+              {listening ? <Button type="button" className="btn-line btn-cancel" onClick={stopListening}><X size={14} /> Stop</Button> : <Button className="btn-primary" type="submit" disabled={!input.trim() || sending || !memoryLoaded}><Send size={14} /> Send response</Button>}
             </div>
           </form>
           {speechError && <p className="speech-error" role="status">{speechError}</p>}
           {tutorNotice && <p className="tutor-fallback-note" role="status">{tutorNotice}</p>}
         </div>
-        <div className="transcript-privacy"><span>TAB-ONLY MEMORY</span><p>Recent conversation text is kept in this tab and cleared when you close it or choose Clear memory. When connected, only the last six exchanges are sent to Gemini for context; no audio is sent.</p></div>
+        <div className="transcript-privacy"><span>{cloudMemoryEnabled && actions.accountSync.email ? "ACCOUNT MEMORY · OPTED IN" : cloudMemoryEnabled ? "TAB MEMORY · ACCOUNT SIGN-IN REQUIRED" : "TAB-ONLY MEMORY"}</span><p>{cloudMemoryEnabled && actions.accountSync.email ? "Recent conversation text is saved to your account so this scene can continue across devices. Choose Clear memory to remove this scene’s saved transcript. No audio is sent." : cloudMemoryEnabled ? "This device’s tab memory is active. Sign in to sync or remove any tutor memory already saved to your account." : "Recent conversation text is kept in this tab and cleared when you close it or choose Clear memory. When connected, only the last six exchanges are sent to Gemini for context; no audio is sent."}</p></div>
       </main>
       <aside className="conversation-aside">
         <div className="aside-card"><span className="eyebrow">A SMALL HINT</span><h3>Need a word?</h3><p>Ask for a hint at any point. It will not end the conversation.</p><button className="text-link" onClick={() => setShowHint((value) => !value)}><HelpCircle size={14} /> {showHint ? "Hide the hint" : "Show me a phrase"}</button></div>

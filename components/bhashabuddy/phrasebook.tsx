@@ -68,7 +68,7 @@ export function PhrasebookPage({ actions }: { actions: RouteActions }) {
           </article>;
         }) : <div className="phrasebook-empty"><span className="empty-mark">01</span><h2>No phrase on this page.</h2><p>Try a different word or clear your filters.</p><Button className="btn-line" onClick={() => { setQuery(""); setCategory("All phrases"); setSavedOnly(false); }}>Show all phrases</Button></div>}
       </div>
-      <div className="phrasebook-note"><span>EDITOR'S NOTE</span><p>These sample phrases are for practice and demonstration. Usage and transliteration may vary by region; no phrase is marked as independently reviewed.</p><Headphones size={19} /></div>
+      <div className="phrasebook-note"><span>EDITOR&apos;S NOTE</span><p>These sample phrases are for practice and demonstration. Usage and transliteration may vary by region; no phrase is marked as independently reviewed.</p><Headphones size={19} /></div>
     </div>
   );
 }

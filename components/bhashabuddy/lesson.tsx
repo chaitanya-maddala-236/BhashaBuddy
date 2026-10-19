@@ -57,7 +57,7 @@ export function LessonPage({ actions, day }: { actions: RouteActions; day: numbe
         <div className="lesson-hero__meta"><span>DAY {String(lesson.day).padStart(2, "0")} / 30</span><span><Clock3 size={14} /> {lesson.duration} MIN</span></div>
         <div className="lesson-hero__title">
           <span className="lesson-hero__number">{String(lesson.day).padStart(2, "0")}</span>
-          <div><span className="eyebrow">TODAY'S PRACTICAL OBJECTIVE</span><h1>{lesson.title}.</h1><p>{lesson.objective}</p></div>
+          <div><span className="eyebrow">TODAY&apos;S PRACTICAL OBJECTIVE</span><h1>{lesson.title}.</h1><p>{lesson.objective}</p></div>
         </div>
         <div className="lesson-scenario"><span>THE SCENE</span><p>{lesson.scenario}</p><span className="lesson-scenario__script" lang={language.locale}>{language.nativeName}</span></div>
       </header>

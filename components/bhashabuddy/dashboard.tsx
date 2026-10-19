@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, ArrowUpRight, Bookmark, Check, Clock3, Flame, Mic2, Play, Sparkles } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Bookmark, Check, Clock3, Flame, Mic2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import type { RouteActions } from "@/components/bhashabuddy/app";
@@ -111,7 +111,7 @@ export function Dashboard({ actions }: { actions: RouteActions }) {
           <p>Regular practice makes familiar phrases easier to reach for.</p>
         </section>
         <section className="phrase-card">
-          <div className="block-heading"><div><span className="eyebrow">KEEP THIS ONE CLOSE</span><h3>Today's phrase.</h3></div><Bookmark size={18} strokeWidth={1.6} /></div>
+          <div className="block-heading"><div><span className="eyebrow">KEEP THIS ONE CLOSE</span><h3>Today&apos;s phrase.</h3></div><Bookmark size={18} strokeWidth={1.6} /></div>
           <p className="phrase-native" lang={language.locale}>{phrase.nativeText}</p>
           <p className="phrase-translit">{phrase.transliteration}</p>
           <div className="phrase-card__bottom"><span>{phrase.meaning}</span><button onClick={() => actions.toggleSaved(phrase.id)} aria-label="Save today's phrase"><Bookmark size={15} fill={actions.state.savedPhraseIds.includes(phrase.id) ? "currentColor" : "none"} /> {actions.state.savedPhraseIds.includes(phrase.id) ? "Saved" : "Save phrase"}</button></div>
@@ -124,7 +124,7 @@ export function Dashboard({ actions }: { actions: RouteActions }) {
           <button className="text-link" onClick={() => actions.go("/learn/" + day)}>View the full 30-day index <ArrowUpRight size={15} /></button>
         </div>
         <div className="lesson-index">
-          {visibleLessons.map((item, index) => {
+          {visibleLessons.map((item) => {
             const isCurrent = item.day === day;
             const isComplete = actions.state.completedDays.includes(item.day);
             return <button key={item.day} className={"lesson-index__row" + (isCurrent ? " is-current" : "")} onClick={() => actions.go("/learn/" + item.day)}>

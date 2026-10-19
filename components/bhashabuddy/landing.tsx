@@ -106,7 +106,7 @@ export function LandingPage({ actions }: { actions: RouteActions }) {
             </div>
             <div className="tutor-preview">
               <div className="tutor-preview__top"><span>ROLE-PLAY / AT THE BUS STOP</span><span>● READY</span></div>
-              <div className="tutor-preview__scene"><span className="scene-stamp">TODAY'S SCENE</span><p>You need to find the bus station. Ask someone nearby for directions.</p></div>
+              <div className="tutor-preview__scene"><span className="scene-stamp">TODAY&apos;S SCENE</span><p>You need to find the bus station. Ask someone nearby for directions.</p></div>
               <div className="preview-message"><small>LOCAL GUIDE</small><p>What are you looking for?</p><span>మీరు ఏమి వెతుకుతున్నారు?</span></div>
               <div className="preview-message preview-message--you"><small>YOU · TRY A RESPONSE</small><p>బస్ స్టేషన్ ఎక్కడ ఉంది?</p><span>Where is the bus station?</span></div>
               <div className="preview-feedback"><span className="feedback-mark">↗</span><p><b>Language note</b><br />A clear question. Try the station name slowly once more.</p><small>TEXT TRANSCRIPT FEEDBACK · NO ACCENT SCORE</small></div>

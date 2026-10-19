@@ -11,7 +11,26 @@ export type ConversationMessage = {
 
 const API_KEY_STORAGE_KEY = "bhashabuddy.gemini.key.v1";
 const MEMORY_STORAGE_PREFIX = "bhashabuddy.tutor.memory.v1";
+const CLOUD_MEMORY_OPT_IN_KEY = "bhashabuddy.account.sync-memory.v1";
 export const MAX_MEMORY_MESSAGES = 12;
+
+export function getCloudMemorySyncEnabled() {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(CLOUD_MEMORY_OPT_IN_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function setCloudMemorySyncEnabled(enabled: boolean) {
+  try {
+    if (enabled) window.localStorage.setItem(CLOUD_MEMORY_OPT_IN_KEY, "true");
+    else window.localStorage.removeItem(CLOUD_MEMORY_OPT_IN_KEY);
+  } catch {
+    throw new Error("This browser could not save the memory setting. Check its storage settings and try again.");
+  }
+}
 
 export function getGeminiApiKey() {
   if (typeof window === "undefined") return "";
